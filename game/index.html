@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel Air — Coral Bay</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0b1c26;
+    font-family: "Avenir Next", "Segoe UI", Verdana, sans-serif; color: #eaf6fb; }
+  #scene { position: fixed; inset: 0; }
+  #scene canvas { display: block; }
+
+  /* Head-up display: a glass strip of readouts along the top of the screen. */
+  #hud { position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 5; pointer-events: none; }
+  .gauge-chip { background: rgba(6, 24, 34, 0.72); border: 1px solid rgba(159, 212, 232, 0.45);
+    border-radius: 8px; padding: 5px 12px 6px; text-align: center; min-width: 74px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+  .gauge-chip .label { font-size: 9px; letter-spacing: 2px; color: #9fd4e8; }
+  .gauge-chip .value { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .gauge-chip .unit { font-size: 10px; color: #9fd4e8; margin-left: 2px; }
+  #hud-fuel .value.low { color: #ff9a3c; }
+  #hud-msg { position: fixed; top: 86px; left: 50%; transform: translateX(-50%); z-index: 5;
+    font-size: 19px; font-weight: 600; letter-spacing: 0.4px; text-align: center; pointer-events: none;
+    color: #ffd98a; text-shadow: 0 2px 8px rgba(0,0,0,0.8); min-height: 26px; }
+  #hud-sub { position: fixed; top: 116px; left: 50%; transform: translateX(-50%); z-index: 5;
+    font-size: 13px; text-align: center; pointer-events: none; color: #eaf6fb;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8); min-height: 18px; }
+  #hud-compass { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 5;
+    background: rgba(6, 24, 34, 0.66); border: 1px solid rgba(159,212,232,0.4); border-radius: 16px;
+    padding: 4px 16px; font-size: 14px; letter-spacing: 3px; pointer-events: none; font-variant-numeric: tabular-nums; }
+  #hud-keys { position: fixed; bottom: 14px; left: 14px; z-index: 5; font-size: 11px; line-height: 1.7;
+    color: rgba(234,246,251,0.85); text-shadow: 0 1px 4px rgba(0,0,0,0.9); pointer-events: none; }
+  #hud-score { position: fixed; top: 10px; right: 14px; z-index: 5; text-align: right; pointer-events: none; }
+  #hud-score .score { font-size: 26px; font-weight: 700; color: #ffd98a; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
+  #hud-score .rings { font-size: 12px; letter-spacing: 1px; color: #eaf6fb; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+
+  /* Menu / debrief overlay. */
+  #menu { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(7,26,38,0.25), rgba(7,26,38,0.72)); }
+  #menu-card { width: 520px; max-width: 92vw; background: rgba(8, 30, 43, 0.92);
+    border: 1px solid rgba(159,212,232,0.5); border-radius: 14px; padding: 26px 30px 22px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55); }
+  #menu-card h1 { margin: 0 0 2px; font-size: 30px; letter-spacing: 1px; }
+  #menu-card h1 .air { color: #ff8c42; }
+  #menu-card .tagline { margin: 0 0 16px; color: #9fd4e8; font-size: 13px; letter-spacing: 0.6px; }
+  #menu-title { font-size: 16px; font-weight: 700; margin: 10px 0 4px; color: #ffd98a; }
+  #menu-body { font-size: 13.5px; line-height: 1.55; color: #d9edf5; margin: 0 0 14px; }
+  .scenario-btn { display: block; width: 100%; text-align: left; margin: 7px 0; padding: 10px 14px;
+    background: rgba(27, 111, 143, 0.35); color: #eaf6fb; border: 1px solid rgba(159,212,232,0.55);
+    border-radius: 9px; font-size: 14px; cursor: pointer; }
+  .scenario-btn:hover { background: rgba(232, 100, 30, 0.55); border-color: #ff8c42; }
+  .scenario-btn b { display: block; font-size: 14.5px; }
+  .scenario-btn span { font-size: 12px; color: #bfe2ef; }
+  #menu-controls { margin-top: 14px; font-size: 11.5px; line-height: 1.8; color: #9fc6d6;
+    border-top: 1px solid rgba(159,212,232,0.25); padding-top: 10px; }
+  #menu-controls b { color: #eaf6fb; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="hud">
+  <div class="gauge-chip" id="hud-alt"><div class="label">ALTITUDE</div><div><span class="value">0</span><span class="unit">FT</span></div></div>
+  <div class="gauge-chip" id="hud-spd"><div class="label">AIRSPEED</div><div><span class="value">0</span><span class="unit">KT</span></div></div>
+  <div class="gauge-chip" id="hud-hdg"><div class="label">HEADING</div><div><span class="value">360</span><span class="unit">DEG</span></div></div>
+  <div class="gauge-chip" id="hud-vsi"><div class="label">VERT SPEED</div><div><span class="value">0</span><span class="unit">FPM</span></div></div>
+  <div class="gauge-chip" id="hud-thr"><div class="label">THROTTLE</div><div><span class="value">0</span><span class="unit">%</span></div></div>
+  <div class="gauge-chip" id="hud-fuel"><div class="label">FUEL</div><div><span class="value">100</span><span class="unit">%</span></div></div>
+</div>
+<div id="hud-msg"></div>
+<div id="hud-sub"></div>
+<div id="hud-score"><div class="score">0</div><div class="rings">RINGS 0 / 9</div></div>
+<div id="hud-compass">N · · · 03 · · · 06 · · · E</div>
+<div id="hud-keys">
+  <b>W/S</b> throttle &nbsp;<b>↑/↓</b> pitch &nbsp;<b>←/→</b> roll<br>
+  <b>Mouse</b> stick &nbsp;<b>C</b> camera &nbsp;<b>Space</b> brake &nbsp;<b>R</b> restart &nbsp;<b>M</b> sound
+</div>
+
+<div id="menu">
+  <div id="menu-card">
+    <h1>KESTREL <span class="air">AIR</span></h1>
+    <p class="tagline">CORAL BAY FLIGHT SCHOOL · ONE PLANE, ONE ISLAND, NINE RINGS</p>
+    <p id="menu-title">Pick your sortie</p>
+    <p id="menu-body">The Kestrel K-1 trainer is fuelled and waiting. Fly the amber rings in order,
+      then bring her home to the Coral Bay runway — a gentle touchdown scores, a hard one bends the gear.</p>
+    <div id="menu-buttons"></div>
+    <div id="menu-controls">
+      <b>W / S</b> throttle up / down · <b>Arrow keys</b> or <b>mouse</b> to pitch and roll ·
+      <b>Space</b> wheel brake · <b>C</b> chase / cockpit camera · <b>R</b> restart sortie · <b>P</b> pause · <b>M</b> mute
+    </div>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="src/config.js"></script>
+<script src="src/terrain.js"></script>
+<script src="src/city.js"></script>
+<script src="src/airport.js"></script>
+<script src="src/aircraft.js"></script>
+<script src="src/rings.js"></script>
+<script src="src/flight-model.js"></script>
+<script src="src/instruments.js"></script>
+<script src="src/camera.js"></script>
+<script src="src/input.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
