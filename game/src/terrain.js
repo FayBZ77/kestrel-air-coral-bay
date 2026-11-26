@@ -115,8 +115,8 @@
     cv.width = 16; cv.height = 256;
     const g = cv.getContext('2d');
     const grad = g.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, '#2f7fc4');
-    grad.addColorStop(0.45, '#7cc0e4');
+    grad.addColorStop(0, '#1d6ab8');
+    grad.addColorStop(0.45, '#5fb2e8');
     grad.addColorStop(0.72, '#cfeefb');
     grad.addColorStop(0.8, '#eaf6fb');
     grad.addColorStop(1, '#eaf6fb');
@@ -124,13 +124,13 @@
     g.fillRect(0, 0, 16, 256);
     const tex = new THREE.CanvasTexture(cv);
     const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(W.size * 1.9, 24, 14),
+      new THREE.SphereGeometry(W.size * 1.6, 24, 14),
       new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false })
     );
     scene.add(dome);
 
     // Puffball clouds: flattened white clusters drifting slowly east.
-    const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.88 });
+    const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
     const clouds = new THREE.Group();
     for (let i = 0; i < 26; i++) {
       const cl = new THREE.Group();

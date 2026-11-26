@@ -5,7 +5,11 @@
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0xcfeefb, 1000, 5600);
 
-  const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.3, 14000);
+  // The far plane must reach past the sky dome from anywhere on the
+  // island (dome radius 10,240 + up to ~3,300 of camera offset), or the
+  // dome's far cap is clipped away and the clear colour shows as a black
+  // dome-shaped hole in the sky.
+  const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.3, 26000);
   camera.position.set(0, 90, 900);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -19,9 +23,9 @@
   // Light: a warm sun with shadows that follow the aeroplane, plus sky fill.
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.55);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -260; sun.shadow.camera.right = 260;
-  sun.shadow.camera.top = 260; sun.shadow.camera.bottom = -260;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -220; sun.shadow.camera.right = 220;
+  sun.shadow.camera.top = 220; sun.shadow.camera.bottom = -220;
   sun.shadow.camera.far = 1600;
   sun.shadow.bias = -0.0006;
   scene.add(sun, sun.target);
@@ -136,7 +140,7 @@
       return { pitch: t > 5.2 ? 0.55 : 0, roll: 0, throttle: t < 0.2 ? 0 : 1, brake: false, fixedThrottle: t >= 0.2 ? 1 : 0 };
     }
     if (shotMode === 'approach') {
-      return { pitch: 0.05, roll: 0, throttle: 0, brake: false, fixedThrottle: 0.34 };
+      return { pitch: -0.03, roll: 0, throttle: 0, brake: false, fixedThrottle: 0.34 };
     }
     return null;
   }
@@ -145,15 +149,15 @@
     startScenario(map[shotMode] || 'runway');
     if (shotMode === 'takeoff') rig.mode = 'cockpit';
     if (shotMode === 'city') {
-      flight.pos.set(560, 300, 420);
-      flight.heading = 1.15;
+      flight.pos.set(500, 290, 520);
+      flight.heading = 0.82;
       flight.bank = 0.42;
       flight.speed = 52;
       flight.throttle = 0.7;
     }
     if (shotMode === 'rings') {
-      flight.pos.set(-60, 128, -240);
-      flight.heading = -0.12;
+      flight.pos.set(-40, 122, -260);
+      flight.heading = 0.185;
       flight.speed = 50;
     }
   } else {
@@ -163,21 +167,24 @@
   const clock = new THREE.Clock();
   let elapsed = 0;
 
-  function frame() {
-    requestAnimationFrame(frame);
-    const dt = Math.min(clock.getDelta(), 0.05);
-    elapsed += dt;
-    const now = performance.now();
+  // The simulation runs on a fixed 1/60 step, accumulated from real time,
+  // so the aeroplane flies at the same rate on a fast GPU and a slow one;
+  // only the picture rate changes.
+  const STEP = 1 / 60;
+  let accumulator = 0;
+  state.time = 0;
 
+  function stepSim(dt) {
+    state.time += dt;
     if (state.mode === 'flying' && !state.paused) {
       const prevPos = flight.pos.clone();
       let input = KA.readInput();
-      const scripted = shotInput(elapsed);
+      const scripted = shotInput(state.time);
       if (scripted) {
         input = scripted;
         if (scripted.fixedThrottle !== undefined) flight.throttle = scripted.fixedThrottle;
       }
-      const events = KA.stepFlight(flight, input, dt, elapsed);
+      const events = KA.stepFlight(flight, input, dt, state.time);
 
       const ringHit = KA.updateRings(dt, flight.pos, prevPos);
       if (ringHit) {
@@ -209,6 +216,22 @@
         if (!state.msg) state.sub = `Next ring: ${dist} m, bearing ${String(brg).padStart(3, '0')}°`;
       }
     }
+  }
+
+  function frame() {
+    requestAnimationFrame(frame);
+    const dt = Math.min(clock.getDelta(), 3);
+    elapsed += dt;
+    const now = performance.now();
+
+    accumulator += dt;
+    let steps = 0;
+    while (accumulator >= STEP && steps < 220) {
+      stepSim(STEP);
+      accumulator -= STEP;
+      steps += 1;
+    }
+    if (steps === 220) accumulator = 0;
 
     // Pose the aeroplane.
     plane.position.copy(flight.pos);
@@ -216,19 +239,19 @@
     plane.rotation.set(flight.pitch, -flight.heading, -flight.bank);
     const ud = plane.userData;
     ud.prop.rotation.z -= dt * (2 + flight.throttle * 42 + flight.speed * 0.22);
-    ud.blade2.visible = flight.throttle > 0.3;
+    if (rig.mode !== 'cockpit') ud.blade2.visible = flight.throttle > 0.3;
 
     // Sun shadow box and light follow the action.
     sun.position.set(flight.pos.x + 260, flight.pos.y + 420, flight.pos.z + 180);
     sun.target.position.copy(flight.pos);
-    if (KA.clouds) KA.clouds.position.x = (elapsed * 1.6) % 800;
-    if (KA.windsock) KA.windsock.rotation.y = elapsed * 0.4;
+    if (KA.clouds) KA.clouds.position.x = (state.time * 1.6) % 800;
+    if (KA.windsock) KA.windsock.rotation.y = state.time * 0.4;
 
     KA.updateHud(flight, state.score, state.ringsDone, rings.rings.length,
       state.mode === 'menu' ? '' : state.msg, state.mode === 'menu' ? '' : state.sub);
     if (rig.mode === 'cockpit') KA.drawPanel(flight, now);
     KA.audio.setEngine(flight.throttle, flight.speed / KA.FLIGHT.maxSpeed);
-    rig.update(dt, flight, now);
+    rig.update(dt, flight, state.time * 1000);
     renderer.render(scene, camera);
   }
   frame();
@@ -240,5 +263,5 @@
   });
 
   // A handle for screenshot runs and curious consoles.
-  window.__kestrel = { flight, state, startScenario, scene, camera, renderer };
+  window.__kestrel = { flight, state, startScenario, scene, camera, renderer, rig, plane };
 })();

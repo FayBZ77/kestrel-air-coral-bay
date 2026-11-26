@@ -30,8 +30,8 @@
 
     // A pillar of light marks the next ring so it can be found from afar.
     const beacon = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.2, 3.2, 420, 10, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xffb03a, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })
+      new THREE.CylinderGeometry(3.2, 3.2, 300, 10, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffb03a, transparent: true, opacity: 0.11, side: THREE.DoubleSide, depthWrite: false })
     );
     group.add(beacon);
     scene.add(group);
@@ -56,7 +56,7 @@
       if (!target) { beacon.visible = false; return null; }
       beacon.visible = true;
       beacon.position.set(target.center.x, target.center.y, target.center.z);
-      beacon.material.opacity = 0.12 + Math.sin(state.pulse * 5) * 0.05;
+      beacon.material.opacity = 0.085 + Math.sin(state.pulse * 5) * 0.035;
 
       // A pass is the segment prev->now crossing the ring's plane inside it.
       const n = new THREE.Vector3(0, 0, 1).applyEuler(target.mesh.rotation);

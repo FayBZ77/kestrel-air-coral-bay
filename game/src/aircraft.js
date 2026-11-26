@@ -34,23 +34,27 @@
     plane.add(canopy);
 
     // High wing with orange tips, slight dihedral built from three boxes.
+    // The whole assembly is one group so the cockpit camera can hide it:
+    // from the pilot's seat a high wing is overhead, not a wall ahead.
+    const wingGroup = new THREE.Group();
     const wingMat = paint;
     const wingC = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.16, 1.7), wingMat);
-    wingC.position.set(0, 1.06, -0.7);
+    wingC.position.set(0, 1.24, -0.7);
     wingC.castShadow = true;
-    plane.add(wingC);
+    wingGroup.add(wingC);
     for (const s of [-1, 1]) {
       const tip = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.14, 1.62), accent);
-      tip.position.set(s * 3.95, 1.22, -0.7);
+      tip.position.set(s * 3.95, 1.4, -0.7);
       tip.rotation.z = s * -0.06;
       tip.castShadow = true;
-      plane.add(tip);
+      wingGroup.add(tip);
       // Wing struts down to the fuselage.
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.7, 5), darkMetal);
-      strut.position.set(s * 1.7, 0.45, -0.7);
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.95, 5), darkMetal);
+      strut.position.set(s * 1.7, 0.56, -0.7);
       strut.rotation.z = s * 0.6;
-      plane.add(strut);
+      wingGroup.add(strut);
     }
+    plane.add(wingGroup);
 
     // Tail: horizontal stabiliser and a tall fin with an orange rudder.
     const stab = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.12, 1.05), paint);
@@ -74,6 +78,12 @@
     const blade2 = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.22, 0.06), bladeMat);
     blade2.visible = false; // the cross shows only as motion blur at speed
     prop.add(blade2);
+    // From the pilot's seat a spinning propeller is a faint disc, not two
+    // solid bars; the disc replaces the blades in cockpit view.
+    const blurDisc = new THREE.Mesh(new THREE.CircleGeometry(1.45, 24),
+      new THREE.MeshBasicMaterial({ color: 0x14120e, transparent: true, opacity: 0.08, side: THREE.DoubleSide }));
+    blurDisc.visible = false;
+    prop.add(blurDisc);
     prop.position.z = -4.35;
     plane.add(prop);
 
@@ -96,10 +106,10 @@
 
     // Navigation lights: red left, green right, white tail.
     const navL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff2a20 }));
-    navL.position.set(-5.6, 1.24, -0.7);
+    navL.position.set(-5.6, 1.42, -0.7);
     plane.add(navL);
     const navR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshBasicMaterial({ color: 0x2aff5a }));
-    navR.position.set(5.6, 1.24, -0.7);
+    navR.position.set(5.6, 1.42, -0.7);
     plane.add(navR);
 
     // Cockpit interior: glareshield and an instrument panel carrying a live
@@ -113,29 +123,27 @@
       new THREE.BoxGeometry(2.05, 0.82, 0.12),
       new THREE.MeshBasicMaterial({ map: panelTex })
     );
-    panel.position.set(0, 0.28, -1.62);
-    panel.rotation.x = -0.16;
+    panel.position.set(0, 0.4, -1.28);
+    panel.rotation.x = -0.08;
     cockpit.add(panel);
-    const shield = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 0.55),
-      new THREE.MeshPhongMaterial({ color: 0x1c2126 }));
-    shield.position.set(0, 0.74, -1.5);
-    shield.rotation.x = 0.35;
-    cockpit.add(shield);
+    // No separate glareshield: at this scale a brow above the panel reads
+    // as a black bar across the windscreen, so the panel's own top edge
+    // does the job.
     // Two control yokes.
     for (const s of [-1, 1]) {
       const column = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.5, 6), darkMetal);
-      column.position.set(s * 0.5, -0.05, -1.35);
+      column.position.set(s * 0.5, -0.05, -1.15);
       column.rotation.x = 0.7;
       cockpit.add(column);
       const yoke = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 12, Math.PI), darkMetal);
-      yoke.position.set(s * 0.5, 0.14, -1.5);
+      yoke.position.set(s * 0.5, 0.14, -1.28);
       yoke.rotation.z = Math.PI;
       cockpit.add(yoke);
     }
     cockpit.visible = false;
     plane.add(cockpit);
 
-    plane.userData = { prop, blade2, canopy, cockpit, panelCanvas, panelTex };
+    plane.userData = { prop, blade, blade2, blurDisc, canopy, cockpit, panelCanvas, panelTex, fuselage, stripe, wingGroup };
     return plane;
   };
 })();
